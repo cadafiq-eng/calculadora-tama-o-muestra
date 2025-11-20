@@ -1545,8 +1545,7 @@ st.markdown("""
         
         **Fórmula básica:** n = (Z_{α/2} × σ / E)²
         
-        Para muestras pequeñas (n < 30), se usa distribución t-Student.
-        """)
+        Para muestras pequeñas (n < 30), se usa distribución t-Student.""")
         
         col1, col2 = st.columns([1, 1])
         
