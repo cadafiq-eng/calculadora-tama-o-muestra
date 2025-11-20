@@ -1540,7 +1540,7 @@ st.markdown("""
 <p><small>Incluye: Estimación de Medias y Proporciones | 4 Tipos de Muestreo</small></p>
 <p><small>Versión 2.0 - Herramienta educativa y profesional</small></p>
 </div>
-""", unsafe_allow_html=True)"""
+""", unsafe_allow_html=True"""
         **Objetivo:** Estimar la media poblacional μ con un intervalo de confianza especificado.
         
         **Fórmula básica:** n = (Z_{α/2} × σ / E)²
