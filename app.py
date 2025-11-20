@@ -1534,18 +1534,14 @@ print(muestra[:10])
 
 # Footer
 st.markdown("---")
+# Código CORREGIDO
 st.markdown("""
 <div style='text-align: center; color: gray;'>
 <p>🔢 Calculadora Avanzada de Tamaño de Muestra</p>
 <p><small>Incluye: Estimación de Medias y Proporciones | 4 Tipos de Muestreo</small></p>
 <p><small>Versión 2.0 - Herramienta educativa y profesional</small></p>
 </div>
-""", unsafe_allow_html=True"""
-        **Objetivo:** Estimar la media poblacional μ con un intervalo de confianza especificado.
-        
-        **Fórmula básica:** n = (Z_{α/2} × σ / E)²
-        
-        Para muestras pequeñas (n < 30), se usa distribución t-Student.""")
+""", unsafe_allow_html=True)
         
         col1, col2 = st.columns([1, 1])
         
@@ -2108,7 +2104,7 @@ st.markdown("""
 # ==========================================
 # MÓDULO 2: POR TIPO DE MUESTREO
 # ==========================================
-else:  # Por Tipo de Muestreo
+else:  # Este 'else' cierra el bloque de opcion_principal
     
     tipo_muestreo = st.selectbox(
         "Selecciona el tipo de muestreo:",
@@ -2123,9 +2119,233 @@ else:  # Por Tipo de Muestreo
     st.markdown("---")
     
     # ==========================================
-    # MUESTREO ALEATORIO SIMPLE
+    # A. MUESTREO ALEATORIO SIMPLE (MAS)
     # ==========================================
     if tipo_muestreo == "🎲 Muestreo Aleatorio Simple (MAS)":
         st.header("Muestreo Aleatorio Simple (MAS)")
+        st.info("Todos los elementos tienen la misma probabilidad de ser seleccionados. Ideal para poblaciones homogéneas con marco muestral completo.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Parámetros")
+            objetivo_mas = st.radio("Objetivo de la estimación:", ["Estimar Media (Promedio)", "Estimar Proporción (%)"])
+            
+            N_mas = st.number_input("Tamaño de la Población (N)", min_value=1, value=5000, help="Total de elementos en el universo de estudio")
+            confianza_mas = st.select_slider("Nivel de Confianza", [0.90, 0.95, 0.99], value=0.95, key="conf_mas_ok")
+            
+            if objetivo_mas == "Estimar Media":
+                sigma_mas = st.number_input("Desviación estándar (σ)", value=20.0, help="Variabilidad estimada de la población")
+                error_mas = st.number_input("Error máximo aceptable (E)", value=2.0, help="En las mismas unidades que la media")
+            else:
+                p_mas = st.slider("Proporción esperada (p)", 0.01, 0.99, 0.50, help="Si no se conoce, usar 0.50 para máxima varianza")
+                error_mas = st.number_input("Margen de Error (E)", 0.01, 0.20, 0.05, format="%.3f", help="Ejemplo: 0.05 es 5%")
+
+        with col2:
+            st.subheader("Resultados")
+            # Cálculo de Z
+            alpha = 1 - confianza_mas
+            z_val = norm.ppf(1 - alpha/2)
+            
+            # Cálculo de n0 (Muestra infinita)
+            if objetivo_mas == "Estimar Media":
+                n0 = (z_val**2 * sigma_mas**2) / error_mas**2
+            else:
+                n0 = (z_val**2 * p_mas * (1-p_mas)) / error_mas**2
+            
+            # Ajuste por Población Finita
+            n_final = int(np.ceil(n0 / (1 + (n0 - 1) / N_mas)))
+            
+            st.metric("Tamaño de muestra (n)", f"{n_final:,}")
+            
+            c_a, c_b = st.columns(2)
+            c_a.metric("% de la población", f"{(n_final/N_mas)*100:.2f}%")
+            c_b.metric("Error Configurado", f"±{error_mas}" if objetivo_mas == "Estimar Media" else f"±{error_mas*100:.1f}%")
         
-        st.info(
+        st.success(f"""
+        ✅ **Interpretación:** Debes seleccionar aleatoriamente **{n_final:,} elementos** de tu lista de {N_mas:,} registros.
+        """)
+        
+        # Botón de exportación
+        df_mas = pd.DataFrame([{'Método': 'MAS', 'N': N_mas, 'n': n_final, 'Confianza': confianza_mas, 'Error': error_mas}])
+        st.download_button("📥 Descargar Resultado (Excel)", exportar_excel(df_mas), "calculo_mas.xlsx")
+
+    # ==========================================
+    # B. MUESTREO ESTRATIFICADO
+    # ==========================================
+    elif tipo_muestreo == "📊 Muestreo Estratificado":
+        st.header("Muestreo Estratificado")
+        st.info("Útil cuando la población se divide en subgrupos (estratos) internamente homogéneos pero diferentes entre sí.")
+        
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.subheader("Configuración Global")
+            objetivo_est = st.radio("Objetivo:", ["Media", "Proporción"], key="obj_est")
+            num_estratos = st.slider("Número de estratos", 2, 6, 3)
+            confianza_est = st.select_slider("Confianza", [0.90, 0.95, 0.99], value=0.95, key="conf_est")
+            error_est = st.number_input("Error total deseado (E)", value=2.0 if objetivo_est == "Media" else 0.05)
+            metodo_asignacion = st.selectbox("Tipo de Asignación:", ["Proporcional", "Óptima de Neyman", "Igual"])
+        
+        st.subheader("Configuración por Estrato")
+        estratos_data = []
+        total_N = 0
+        
+        # Loop para generar inputs dinámicos
+        for i in range(num_estratos):
+            st.markdown(f"**Estrato {i+1}**")
+            cols = st.columns(3)
+            with cols[0]:
+                N_h = st.number_input(f"Población N_{i+1}", min_value=1, value=1000*(i+1), key=f"N_est_{i}")
+            with cols[1]:
+                label_v = f"Desv. Std (σ_{i+1})" if objetivo_est=='Media' else f"Proporción (p_{i+1})"
+                val_h = st.number_input(label_v, value=10.0 if objetivo_est=='Media' else 0.5, key=f"v_est_{i}")
+                # Si es proporción, calculamos sigma implícita
+                sigma_h = val_h if objetivo_est=='Media' else np.sqrt(val_h*(1-val_h))
+            with cols[2]:
+                costo_h = st.number_input(f"Costo unitario", value=1.0, disabled=(metodo_asignacion != "Óptima de Neyman"), key=f"c_est_{i}")
+            
+            estratos_data.append({'Estrato': i+1, 'N_h': N_h, 'sigma_h': sigma_h, 'costo_h': costo_h})
+            total_N += N_h
+
+        # Cálculos
+        z_est = norm.ppf(1 - (1-confianza_est)/2)
+        D = (error_est**2) / (z_est**2)
+        
+        suma_Nh_sigmah = sum([d['N_h'] * d['sigma_h'] for d in estratos_data])
+        suma_Nh_sigmah2 = sum([d['N_h'] * d['sigma_h']**2 for d in estratos_data])
+        
+        # Fórmula del tamaño total n
+        if metodo_asignacion == "Proporcional":
+            n_total = suma_Nh_sigmah2 / (total_N**2 * D + suma_Nh_sigmah2)
+        elif metodo_asignacion == "Óptima de Neyman":
+            # Simplificación asumiendo costos iguales para la fórmula básica de Neyman mostrada aquí
+            n_total = (suma_Nh_sigmah**2) / (total_N**2 * D + suma_Nh_sigmah2)
+        else: # Asignación Igual (aproximación simple)
+            n_total = 30 * num_estratos 
+
+        n_total = int(np.ceil(n_total))
+        
+        st.divider()
+        c1, c2 = st.columns(2)
+        c1.metric("Tamaño de Muestra Total (n)", f"{n_total:,}")
+        c1.metric("Población Total (N)", f"{total_N:,}")
+        
+        # Distribución de la muestra (n_h)
+        asignaciones = []
+        if metodo_asignacion == "Proporcional":
+            for d in estratos_data: asignaciones.append(int(n_total * (d['N_h']/total_N)))
+        elif metodo_asignacion == "Óptima de Neyman":
+            for d in estratos_data: asignaciones.append(int(n_total * (d['N_h']*d['sigma_h'])/suma_Nh_sigmah))
+        else:
+            asignaciones = [int(n_total/num_estratos)] * num_estratos
+            
+        # Tabla de resultados
+        df_res = pd.DataFrame({
+            'Estrato': [d['Estrato'] for d in estratos_data],
+            'Población (N_h)': [d['N_h'] for d in estratos_data],
+            'Muestra Asignada (n_h)': asignaciones,
+            '% de Muestreo': [f"{(n/N)*100:.1f}%" for n, N in zip(asignaciones, [d['N_h'] for d in estratos_data])]
+        })
+        c2.dataframe(df_res, hide_index=True)
+        st.download_button("📥 Descargar Asignación (Excel)", exportar_excel(df_res), "asignacion_estratificada.xlsx")
+
+    # ==========================================
+    # C. MUESTREO POR CONGLOMERADOS
+    # ==========================================
+    elif tipo_muestreo == "🏘️ Muestreo por Conglomerados":
+        st.header("Muestreo por Conglomerados")
+        st.info("Se seleccionan grupos completos (escuelas, cajas, manzanas) en lugar de individuos. Es más barato pero menos preciso (DEFF > 1).")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Datos de Población")
+            M_total = st.number_input("Número total de conglomerados (M)", value=200, help="Total de grupos disponibles")
+            tam_prom = st.number_input("Tamaño promedio del conglomerado", value=50, help="Promedio de elementos dentro de cada grupo")
+            icc = st.number_input("Coeficiente Correlación Intraclase (ICC)", 0.0, 1.0, 0.05, help="Qué tan parecidos son los elementos dentro de un grupo. 0=distintos, 1=idénticos")
+            
+            st.subheader("Parámetros de Estimación")
+            objetivo_cong = st.radio("Objetivo", ["Media", "Proporción"], key="obj_cong")
+            
+            if objetivo_cong == "Media":
+                sigma_tot = st.number_input("Desviación estándar global (σ)", value=20.0)
+                error_cong = st.number_input("Error máximo (E)", value=2.0)
+            else:
+                p_cong = st.slider("Proporción estimada (p)", 0.01, 0.99, 0.50)
+                error_cong = st.number_input("Error máximo (E)", 0.01, 0.2, 0.05)
+                
+        with col2:
+            st.subheader("Resultados")
+            # 1. Calcular Efecto de Diseño (DEFF)
+            deff = 1 + (tam_prom - 1) * icc
+            
+            # 2. Calcular n como si fuera MAS
+            z_val = 1.96 # Asumiendo 95%
+            if objetivo_cong == "Media":
+                n_mas = (z_val**2 * sigma_tot**2) / error_cong**2
+            else:
+                n_mas = (z_val**2 * p_cong * (1-p_cong)) / error_cong**2
+            
+            # 3. Ajustar n con DEFF
+            n_complex = n_mas * deff
+            
+            # 4. Calcular número de conglomerados (m)
+            m_clusters = int(np.ceil(n_complex / tam_prom))
+            
+            st.metric("Conglomerados a seleccionar (m)", f"{m_clusters:,}")
+            st.metric("Total de elementos (n)", f"{m_clusters * int(tam_prom):,}")
+            st.metric("Efecto de Diseño (DEFF)", f"{deff:.2f}")
+            
+            if deff > 2:
+                st.warning("⚠️ El DEFF es alto. Los elementos dentro de los grupos son muy parecidos. Necesitas mucha más muestra que en un aleatorio simple.")
+            
+        st.success(f"Plan de acción: De tus {M_total} conglomerados, selecciona aleatoriamente **{m_clusters}** y censa a todos sus elementos.")
+
+    # ==========================================
+    # D. MUESTREO SISTEMÁTICO
+    # ==========================================
+    else:  # Sistemático
+        st.header("Muestreo Sistemático")
+        st.info("Se elige un punto de partida aleatorio y luego se selecciona cada k-ésimo elemento de la lista ordenada.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            N_sys = st.number_input("Tamaño de la Población (N)", value=5000)
+            n_deseado = st.number_input("Tamaño de muestra deseado (n)", value=384, help="Calcula este valor usando el módulo de 'Estimación de una Media/Proporción' primero")
+        
+        with col2:
+            # Calcular intervalo k
+            if n_deseado > 0:
+                k = int(N_sys / n_deseado)
+            else:
+                k = 0
+            
+            # Arranque aleatorio
+            if k > 0:
+                inicio = np.random.randint(1, k+1)
+            else:
+                inicio = 0
+            
+            st.metric("Intervalo de salto (k)", k)
+            st.metric("Arranque aleatorio (r)", inicio)
+            
+            st.markdown(f"""
+            **Instrucciones:**
+            1. Ordena tu lista de población del 1 al {N_sys}.
+            2. Selecciona el sujeto número **{inicio}**.
+            3. Selecciona el sujeto **{inicio} + {k} = {inicio+k}**.
+            4. Continúa sumando {k} hasta completar la muestra.
+            """)
+
+        st.markdown("---")
+        st.markdown("### 📄 Generar Lista de Selección")
+        if st.button("Generar lista de números a muestrear"):
+            if k > 0:
+                muestra = [inicio + i*k for i in range(n_deseado)]
+                # Filtramos si alguno se pasa de N (por redondeos)
+                muestra = [x for x in muestra if x <= N_sys]
+                
+                st.write(f"Mostrando primeros 20 números de identificación:")
+                st.code(f"{muestra[:20]} ...")
+                
+                st.download_button("📥 Descargar lista completa (.txt)", str(muestra), "seleccion_sistematica.txt")
+            else:
+                st.error("El tamaño de muestra debe ser mayor a 0.")
