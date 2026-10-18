@@ -1,5 +1,12 @@
 # 🔢 Calculadora Avanzada de Tamaño de Muestra
 
+> **🌐 Versión web disponible (recomendada)**
+>
+> Esta herramienta ya existe como app web: funciona en cualquier navegador y se instala en el celular, sin Python ni servidor.
+> 👉 **[Muestreo e Inferencia — HumAIno®](https://cadafiq-eng.github.io/muestreo-inferencia/)** · pestaña *Tamaño de Muestra*
+>
+> Este repositorio se conserva como la versión original en Python/Streamlit y como referencia del código. La app web se distribuye bajo [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/deed.es); el código de este repositorio conserva su licencia original.
+
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/streamlit-1.29-red.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
